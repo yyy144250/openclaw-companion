@@ -1,30 +1,29 @@
 /**
  * OpenClaw Companion Cloud Server
  * WebSocket服务端 - 处理桌面客户端的连接和消息
- * 
- * 使用方法:
- *   npm install ws
- *   node server.js
- * 
- * 或使用Docker部署
+ * 直接调用LLM API
  */
 
 const WebSocket = require('ws');
 const http = require('http');
-const fs = require('fs');
-const path = require('path');
+const https = require('https');
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 // 配置
 const PORT = process.env.PORT || 8765;
-const LLM_API = process.env.LLM_API || 'http://localhost:8080'; // OpenClaw Gateway
-const TTS_API = process.env.TTS_API || 'http://localhost:8080';
 
-// 简单的HTTP服务器 - 提供静态资源和API
+// MiniMax LLM配置
+const LLM_CONFIG = {
+  baseUrl: 'https://api.minimaxi.com/v1',
+  apiKey: 'sk-cp-PffADK-sNdSAQo-cS6vouuAG49iwWT6Ygoe7yCJVkhPX-SnccPwi0W7LabSWYJoSnd_6zbTihZBahJeUEtPutwWgF_ujc0in1SyMQk1c9rFjuzawUN6uFTk',
+  model: 'MiniMax-M2.5'
+};
+
+// HTTP服务器
 const server = http.createServer(async (req, res) => {
-  // CORS头
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -32,34 +31,9 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 健康检查
   if (req.url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ status: 'ok', clients: wss?.clients?.size || 0 }));
-    return;
-  }
-
-  // TTS合成API
-  if (req.url === '/api/tts' && req.method === 'POST') {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', async () => {
-      try {
-        const { text, voice = 'zh-CN-XiaoxiaoNeural' } = JSON.parse(body);
-        
-        // 调用TTS服务 (这里需要对接实际的TTS服务)
-        // 暂时返回模拟响应
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          success: true,
-          audio_url: null, // 实际应返回音频URL
-          message: 'TTS暂未配置，请配置TTS服务'
-        }));
-      } catch (e) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Invalid request' }));
-      }
-    });
     return;
   }
 
@@ -70,9 +44,6 @@ const server = http.createServer(async (req, res) => {
 // WebSocket服务器
 const wss = new WebSocket.Server({ server });
 
-// 连接的客户端
-const clients = new Map();
-
 console.log(`🚀 OpenClaw Companion Server starting on port ${PORT}`);
 
 wss.on('connection', (ws, req) => {
@@ -80,7 +51,18 @@ wss.on('connection', (ws, req) => {
   const ip = req.socket.remoteAddress;
   
   console.log(`📱 Client connected: ${clientId} from ${ip}`);
-  clients.set(ws, { id: clientId, authenticated: false });
+  
+  // 发送欢迎消息
+  ws.send(JSON.stringify({
+    type: 'chat_response',
+    payload: {
+      text: '你好！我是拟蓑白，你的桌面伴侣~ 🗣️ 可以和我聊天哦！',
+      live2d_action: 'idle',
+      live2d_expression: 'smile'
+    },
+    id: `welcome_${Date.now()}`,
+    timestamp: Date.now()
+  }));
 
   ws.on('message', async (data) => {
     try {
@@ -88,68 +70,35 @@ wss.on('connection', (ws, req) => {
       await handleMessage(ws, message);
     } catch (e) {
       console.error('❌ Failed to parse message:', e);
-      ws.send(JSON.stringify({
-        type: 'error',
-        payload: { message: 'Invalid message format' },
-        id: 'error',
-        timestamp: Date.now()
-      }));
     }
   });
 
   ws.on('close', () => {
-    const client = clients.get(ws);
-    console.log(`👋 Client disconnected: ${client?.id}`);
-    clients.delete(ws);
-  });
-
-  ws.on('error', (error) => {
-    console.error('❌ WebSocket error:', error);
+    console.log(`👋 Client disconnected: ${clientId}`);
   });
 });
 
 // 处理消息
 async function handleMessage(ws, message) {
-  const client = clients.get(ws);
-  
   switch (message.type) {
     case 'system':
-      // 认证
       if (message.payload?.action === 'auth') {
-        const token = message.payload.token;
-        // 这里验证token
-        client.authenticated = true;
-        client.token = token;
-        
         ws.send(JSON.stringify({
           type: 'connection_status',
           payload: { status: 'authenticated' },
           id: message.id,
           timestamp: Date.now()
         }));
-        
-        // 发送欢迎消息
-        ws.send(JSON.stringify({
-          type: 'chat_response',
-          payload: {
-            text: '你好！我是OpenClaw Companion，已连接到云端服务~',
-            live2d_action: 'idle',
-            live2d_expression: 'smile'
-          },
-          id: `msg_${Date.now()}`,
-          timestamp: Date.now()
-        }));
       }
       break;
 
     case 'chat':
-      // 对话消息
-      const userMessage = message.payload.message;
-      const mode = message.payload.mode || 'text';
+      const userMessage = message.payload?.message;
+      if (!userMessage) return;
       
-      console.log(`💬 Chat from ${client.id}: ${userMessage}`);
+      console.log(`💬 Chat: ${userMessage}`);
       
-      // 发送正在思考的状态
+      // 发送正在思考
       ws.send(JSON.stringify({
         type: 'live2d_action',
         payload: { motion: 'thinking' },
@@ -158,40 +107,31 @@ async function handleMessage(ws, message) {
       }));
 
       try {
-        // 调用LLM API (对接OpenClaw Gateway)
+        // 调用LLM
+        console.log('🤖 Calling LLM...');
         const llmResponse = await callLLM(userMessage);
+        console.log('🤖 LLM response:', llmResponse.substring(0, 50));
         
         // 发送回复
-        ws.send(JSON.stringify({
+        const responseMsg = {
           type: 'chat_response',
           payload: {
-            text: llmResponse.text,
-            tts_url: llmResponse.tts_url,
+            text: llmResponse,
             live2d_action: 'idle',
-            live2d_expression: getExpression(llmResponse.text)
+            live2d_expression: getExpression(llmResponse)
           },
           id: message.id,
           timestamp: Date.now()
-        }));
-
-        // 如果是语音模式，生成TTS
-        if (mode === 'voice' && llmResponse.text) {
-          const ttsResult = await callTTS(llmResponse.text);
-          if (ttsResult.audio_url) {
-            ws.send(JSON.stringify({
-              type: 'tts_audio',
-              payload: { audio_url: ttsResult.audio_url },
-              id: message.id,
-              timestamp: Date.now()
-            }));
-          }
-        }
+        };
+        console.log('📤 Sending response:', JSON.stringify(responseMsg).substring(0, 100));
+        ws.send(JSON.stringify(responseMsg));
+        console.log('✅ Response sent');
       } catch (e) {
         console.error('❌ LLM error:', e);
         ws.send(JSON.stringify({
           type: 'chat_response',
           payload: {
-            text: '抱歉，我现在有点不舒服，请稍后再试~',
+            text: '抱歉，我刚才走神了~ 可以再说一遍吗？',
             live2d_action: 'sad'
           },
           id: message.id,
@@ -199,86 +139,50 @@ async function handleMessage(ws, message) {
         }));
       }
       break;
-
-    case 'tts':
-      // TTS请求
-      const ttsText = message.payload?.text;
-      if (ttsText) {
-        const ttsResult = await callTTS(ttsText);
-        ws.send(JSON.stringify({
-          type: 'tts_audio',
-          payload: ttsResult,
-          id: message.id,
-          timestamp: Date.now()
-        }));
-      }
-      break;
-
-    default:
-      console.log(`📝 Unknown message type: ${message.type}`);
   }
 }
 
-// 调用LLM
+// 调用MiniMax LLM
 async function callLLM(text) {
-  try {
-    // 对接OpenClaw Gateway的LLM API
-    const response = await fetch(`${LLM_API}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: text,
-        // 可添加其他参数
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`LLM API error: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    return {
-      text: data.text || data.response || data.message || '收到消息~',
-      tts_url: null
-    };
-  } catch (e) {
-    console.error('LLM调用失败:', e);
-    // 如果LLM调用失败，返回模拟响应
-    return {
-      text: `收到消息: ${text}`,
-      tts_url: null
-    };
-  }
-}
+  const url = `${LLM_CONFIG.baseUrl}/text/chatcompletion_v2`;
+  
+  const body = {
+    model: LLM_CONFIG.model,
+    max_tokens: 1024,
+    messages: [
+      {
+        role: 'system',
+        content: '你是拟蓑白，一个理性、冷静、书卷气的AI助手。回答要简洁、有帮助。'
+      },
+      {
+        role: 'user',
+        content: text
+      }
+    ]
+  };
 
-// 调用TTS
-async function callTTS(text) {
-  try {
-    // 对接TTS服务
-    const response = await fetch(`${TTS_API}/api/tts`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text,
-        voice: 'zh-CN-XiaoxiaoNeural'
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`TTS API error: ${response.status}`);
-    }
-    
-    return await response.json();
-  } catch (e) {
-    console.error('TTS调用失败:', e);
-    return { audio_url: null, error: e.message };
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${LLM_CONFIG.apiKey}`
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`LLM API error: ${response.status} - ${err}`);
   }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || '收到消息~';
 }
 
 // 根据文本获取表情
 function getExpression(text) {
-  const happyWords = ['开心', '高兴', '好', '棒', '喜欢', '么么哒', '爱你'];
-  const sadWords = ['难过', '伤心', '抱歉', '对不起', '对不起'];
+  const happyWords = ['开心', '高兴', '好', '棒', '喜欢', '么么哒', '爱你', '谢谢', '哈哈'];
+  const sadWords = ['难过', '伤心', '抱歉', '对不起', '呜呜'];
   
   for (const word of happyWords) {
     if (text.includes(word)) return 'happy';
@@ -290,23 +194,7 @@ function getExpression(text) {
   return 'neutral';
 }
 
-// 广播消息给所有客户端
-function broadcast(message) {
-  wss.clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify(message));
-    }
-  });
-}
-
-// 定时任务 - 系统监控
-setInterval(() => {
-  // 这里可以添加系统监控逻辑
-  // 如CPU、内存使用率等
-  // 通过broadcast发送给客户端
-}, 30000);
-
-server.listen(PORT, () => {
-  console.log(`✅ Server running at ws://localhost:${PORT}`);
-  console.log(`   HTTP API at http://localhost:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Server running on ws://0.0.0.0:${PORT}`);
+  console.log(`   公网地址: ws://8.129.86.214:${PORT}`);
 });

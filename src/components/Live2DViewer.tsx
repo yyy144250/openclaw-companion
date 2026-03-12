@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Application, Container } from 'pixi.js';
-import * as Live2D from 'pixi-live2d-display';
+import { Live2DModel } from 'pixi-live2d-display/cubism4';
 import { useAppStore } from '../stores/appStore';
 import './Live2DViewer.css';
 
@@ -64,7 +64,7 @@ export function Live2DViewer({ modelPath = '/models/miku.model3.json' }: Live2DV
       console.log('Loading model from:', modelPath);
       
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const model: any = await (Live2D as any).Live2DModel.from(modelPath);
+      const model: any = await Live2DModel.from(modelPath);
       
       // 设置模型大小和位置
       const viewWidth = containerRef.current?.clientWidth || 400;
