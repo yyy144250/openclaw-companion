@@ -1,5 +1,5 @@
-import { ClientMessage, ServerMessage } from '../types';
-import { useAppStore } from '../stores/appStore';
+import { ClientMessage, ServerMessage, ServerConfig } from '../types';
+import { useAppStore, getWsUrl } from '../stores/appStore';
 
 class WebSocketService {
   private ws: WebSocket | null = null;
@@ -7,11 +7,18 @@ class WebSocketService {
   private connectTimer: number | null = null;
   private messageHandlers: Map<string, (payload: any) => void> = new Map();
   private intentionalClose = false;
+  private currentConfig: ServerConfig | null = null;
 
-  connect(serverUrl: string, token: string) {
+  connectWithConfig(config: ServerConfig) {
+    const url = getWsUrl(config);
+    this.currentConfig = config;
+    this.connectToUrl(url, config.token);
+  }
+
+  private connectToUrl(serverUrl: string, token: string) {
     console.log('[WS] connect() called with:', serverUrl);
-    
-    // 如果已有连接，先清理
+
+    // 清理已有连接
     if (this.ws) {
       this.intentionalClose = true;
       this.ws.onopen = null;
@@ -34,7 +41,6 @@ class WebSocketService {
     this.intentionalClose = false;
 
     try {
-      console.log('Connecting to:', serverUrl);
       this.ws = new WebSocket(serverUrl);
 
       // 10秒连接超时
@@ -49,7 +55,7 @@ class WebSocketService {
       }, 10000);
 
       this.ws.onopen = () => {
-        console.log('WebSocket connected to:', serverUrl);
+        console.log('✅ WebSocket connected to:', serverUrl);
         if (this.connectTimer) {
           clearTimeout(this.connectTimer);
           this.connectTimer = null;
@@ -59,7 +65,7 @@ class WebSocketService {
           type: 'system',
           payload: { action: 'auth', token },
           id: `auth_${Date.now()}`,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         });
         useAppStore.getState().connect();
       };
@@ -74,14 +80,14 @@ class WebSocketService {
       };
 
       this.ws.onclose = (event) => {
-        console.log('WebSocket disconnected, code:', event.code, 'reason:', event.reason);
+        console.log('WebSocket disconnected, code:', event.code);
         if (this.connectTimer) {
           clearTimeout(this.connectTimer);
           this.connectTimer = null;
         }
         useAppStore.getState().disconnect();
-        if (!this.intentionalClose) {
-          this.scheduleReconnect(serverUrl, token);
+        if (!this.intentionalClose && this.currentConfig) {
+          this.scheduleReconnect();
         }
       };
 
@@ -93,23 +99,26 @@ class WebSocketService {
     }
   }
 
-  private scheduleReconnect(serverUrl: string, token: string) {
-    if (this.reconnectTimer) return;
-    
+  private scheduleReconnect() {
+    if (this.reconnectTimer || !this.currentConfig) return;
+
     this.reconnectTimer = window.setTimeout(() => {
       this.reconnectTimer = null;
-      this.connect(serverUrl, token);
+      if (this.currentConfig) {
+        this.connectWithConfig(this.currentConfig);
+      }
     }, 5000);
   }
 
   disconnect() {
     this.intentionalClose = true;
-    
+    this.currentConfig = null;
+
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
-    
+
     if (this.ws) {
       this.ws.close();
       this.ws = null;
@@ -120,17 +129,22 @@ class WebSocketService {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message));
     } else {
-      console.warn('WebSocket not connected, message queued:', message);
+      console.warn('WebSocket not connected');
     }
   }
 
-  sendChat(text: string, mode: 'text' | 'voice' = 'text') {
+  /** 发送聊天消息（支持图片） */
+  sendChat(text: string, images?: string[]) {
     const id = `msg_${Date.now()}`;
     this.send({
       type: 'chat',
-      payload: { message: text, mode },
+      payload: {
+        message: text,
+        images: images || [],
+        mode: 'text',
+      },
       id,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
     return id;
   }
@@ -152,3 +166,35 @@ class WebSocketService {
 }
 
 export const wsService = new WebSocketService();
+
+// ===== 服务器连通性探测 =====
+export async function probeServer(host: string): Promise<{
+  reachable: boolean;
+  port: number;
+  secure: boolean;
+}> {
+  // 按优先级尝试常见端口
+  const candidates = [
+    { port: 443, secure: false },
+    { port: 8765, secure: false },
+    { port: 80, secure: false },
+    { port: 443, secure: true },
+  ];
+
+  for (const { port, secure } of candidates) {
+    const protocol = secure ? 'https' : 'http';
+    const url = `${protocol}://${host}:${port}/health`;
+    try {
+      const resp = await fetch(url, {
+        signal: AbortSignal.timeout(3000),
+      });
+      if (resp.ok) {
+        return { reachable: true, port, secure };
+      }
+    } catch {
+      // 继续尝试下一个
+    }
+  }
+
+  return { reachable: false, port: 443, secure: false };
+}

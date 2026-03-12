@@ -26,15 +26,12 @@ export function Live2DViewer({ modelPath = '/models/miku.model3.json' }: Live2DV
     try {
       setLoading(true);
       setError(null);
-      console.log('Loading model from:', modelPath);
 
       const model = await Live2DModel.from(modelPath);
 
-      // 设置模型大小和位置
-      const viewWidth = containerRef.current.clientWidth || 400;
-      const viewHeight = containerRef.current.clientHeight || 500;
+      const viewWidth = containerRef.current.clientWidth || 350;
+      const viewHeight = containerRef.current.clientHeight || 400;
 
-      // 自适应大小
       const scale = Math.min(
         viewWidth / model.width,
         viewHeight / model.height
@@ -49,30 +46,24 @@ export function Live2DViewer({ modelPath = '/models/miku.model3.json' }: Live2DV
 
       // 启用交互
       model.interactive = true;
-      model.on('pointerdown', () => {
-        console.log('Model clicked!');
-        if (model.internalModel?.motionManager) {
-          model.internalModel.motionManager.startMotion('tap_body', 0);
-        }
-      });
 
       setLoading(false);
     } catch (e) {
       console.error('Failed to load model:', e);
-      setError(`Failed to load model: ${e}`);
+      setError(`模型加载失败`);
       setLoading(false);
     }
   }, [modelPath]);
 
-  // 初始化 PIXI 和 Live2D
+  // 初始化 PIXI
   useEffect(() => {
     if (!containerRef.current) return;
 
     const initApp = async () => {
       try {
         const app = new PIXI.Application({
-          width: containerRef.current?.clientWidth || 400,
-          height: containerRef.current?.clientHeight || 500,
+          width: containerRef.current?.clientWidth || 350,
+          height: containerRef.current?.clientHeight || 400,
           backgroundAlpha: 0,
           antialias: true,
           resolution: window.devicePixelRatio || 1,
@@ -85,7 +76,6 @@ export function Live2DViewer({ modelPath = '/models/miku.model3.json' }: Live2DV
           containerRef.current.appendChild(app.view as HTMLCanvasElement);
         }
 
-        // 加载 Live2D 模型
         await loadModel();
       } catch (e) {
         console.error('Failed to initialize:', e);
@@ -110,53 +100,12 @@ export function Live2DViewer({ modelPath = '/models/miku.model3.json' }: Live2DV
 
     const model = modelRef.current;
 
-    // 播放动作
     if (live2dAction.motion && model.internalModel?.motionManager) {
       model.internalModel.motionManager.startMotion(live2dAction.motion, 0);
     }
 
-    // 设置表情
     if (live2dAction.expression && model.internalModel?.motionManager?.expressionManager) {
       model.internalModel.motionManager.expressionManager.setExpression(live2dAction.expression);
-    }
-
-    // 目光追踪
-    if (live2dAction.tracking === 'mouse' && containerRef.current) {
-      const handleMouseMove = (e: MouseEvent) => {
-        if (!containerRef.current || !model.internalModel) return;
-        
-        const rect = containerRef.current.getBoundingClientRect();
-        const x = (e.clientX - rect.left) / rect.width;
-        const y = (e.clientY - rect.top) / rect.height;
-        
-        // 设置目光方向
-        if (model.internalModel.core) {
-          const paramAngleX = model.internalModel.core.Parameters.find(
-            (p: { Name: string }) => p.Name === 'ParamAngleX'
-          );
-          const paramAngleY = model.internalModel.core.Parameters.find(
-            (p: { Name: string }) => p.Name === 'ParamAngleY'
-          );
-          
-          if (paramAngleX) {
-            model.internalModel.core.setParameterValueById(
-              paramAngleX.Id,
-              (x - 0.5) * 30
-            );
-          }
-          if (paramAngleY) {
-            model.internalModel.core.setParameterValueById(
-              paramAngleY.Id,
-              (y - 0.5) * 30
-            );
-          }
-        }
-      };
-
-      containerRef.current.addEventListener('mousemove', handleMouseMove);
-      return () => {
-        containerRef.current?.removeEventListener('mousemove', handleMouseMove);
-      };
     }
   }, [live2dAction]);
 
@@ -165,7 +114,6 @@ export function Live2DViewer({ modelPath = '/models/miku.model3.json' }: Live2DV
       {loading && (
         <div className="live2d-loading">
           <div className="loading-spinner"></div>
-          <span>加载模型中...</span>
         </div>
       )}
       {error && (

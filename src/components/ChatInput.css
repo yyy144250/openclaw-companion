@@ -1,55 +1,137 @@
-.chat-input {
+.chat-input-wrapper {
+  padding: 12px 16px;
+}
+
+/* 图片预览条 */
+.image-preview-bar {
   display: flex;
   gap: 8px;
-  padding: 12px 16px;
-  background: #f8f9fa;
-  border-top: 1px solid #eee;
+  margin-bottom: 10px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  overflow-x: auto;
 }
 
-.chat-input input {
-  flex: 1;
-  padding: 10px 14px;
-  border: 1px solid #ddd;
-  border-radius: 20px;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.2s;
-  background: white;
+.image-preview-item {
+  position: relative;
+  flex-shrink: 0;
 }
 
-.chat-input input:focus {
-  border-color: #7c6eff;
+.image-preview-item img {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.chat-input input:disabled {
-  background: #f5f5f5;
-  color: #999;
-}
-
-.send-btn {
-  width: 40px;
-  height: 40px;
-  border: none;
+.remove-image {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: #7c6eff;
-  color: white;
+  border: none;
+  background: rgba(244, 67, 54, 0.9);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+}
+
+/* 输入行 */
+.input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 6px 8px;
+  transition: border-color 0.2s;
+}
+
+.input-row:focus-within {
+  border-color: rgba(138, 100, 255, 0.4);
+}
+
+.input-row textarea {
+  flex: 1;
+  background: none;
+  border: none;
+  color: #e0e0e0;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 6px 4px;
+  resize: none;
+  outline: none;
+  min-height: 20px;
+  max-height: 100px;
+  font-family: inherit;
+}
+
+.input-row textarea::placeholder {
+  color: #555;
+}
+
+.input-row textarea:disabled {
+  opacity: 0.5;
+}
+
+/* 附件按钮 */
+.attach-btn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: none;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #666;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.attach-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: #aaa;
+}
+
+.attach-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* 发送按钮 */
+.send-btn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: linear-gradient(135deg, #8a64ff, #6e44e0);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #fff;
+  transition: all 0.15s;
+  flex-shrink: 0;
 }
 
 .send-btn:hover:not(:disabled) {
-  background: #6b5ce7;
+  background: linear-gradient(135deg, #9b7aff, #7e55f0);
   transform: scale(1.05);
 }
 
 .send-btn:disabled {
-  background: #ccc;
+  opacity: 0.3;
   cursor: not-allowed;
-}
-
-.send-btn svg {
-  margin-left: 2px;
+  transform: none;
 }

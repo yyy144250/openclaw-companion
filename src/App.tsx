@@ -1,41 +1,49 @@
-import { useState, useEffect } from 'react';
-import { Live2DViewer } from './components/Live2DViewer';
-import { ChatInput } from './components/ChatInput';
-import { ChatMessages } from './components/ChatMessages';
-import { SettingsPanel } from './components/SettingsPanel';
+import { useEffect, useState } from 'react';
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { MascotView } from './views/MascotView';
+import { ChatView } from './views/ChatView';
+import { SetupWizard } from './components/SetupWizard';
 import { useAppStore } from './stores/appStore';
 import { wsService } from './services/websocket';
+import { getHttpUrl } from './stores/appStore';
 import './App.css';
 
 function App() {
-  const [showSettings, setShowSettings] = useState(false);
-  const isConnected = useAppStore((state) => state.isConnected);
+  const [windowLabel, setWindowLabel] = useState<string>('mascot');
   const addMessage = useAppStore((state) => state.addMessage);
   const setLive2DAction = useAppStore((state) => state.setLive2DAction);
   const setIsPlaying = useAppStore((state) => state.setIsPlaying);
+  const settings = useAppStore((state) => state.settings);
 
-  // 初始化WebSocket连接
+  // 检测当前窗口类型
   useEffect(() => {
-    // 等待 zustand persist hydration 完成后再连接
+    try {
+      const win = getCurrentWebviewWindow();
+      setWindowLabel(win.label);
+    } catch {
+      setWindowLabel('mascot');
+    }
+  }, []);
+
+  // 初始化 WebSocket 连接（只在 mascot 窗口中初始化）
+  useEffect(() => {
+    if (windowLabel !== 'mascot') return;
+
     const unsub = useAppStore.persist.onFinishHydration((state) => {
-      console.log('Store hydrated, serverUrl:', state.settings.serverUrl, 'autoConnect:', state.settings.autoConnect);
-      if (state.settings.autoConnect && state.settings.serverUrl) {
-        wsService.connect(state.settings.serverUrl, state.settings.token);
+      if (state.settings.autoConnect && state.settings.setupComplete) {
+        wsService.connectWithConfig(state.settings.server);
       }
     });
 
-    // 如果已经 hydrated（同步存储的情况），立即检查
     if (useAppStore.persist.hasHydrated()) {
-      const currentSettings = useAppStore.getState().settings;
-      console.log('Store already hydrated, serverUrl:', currentSettings.serverUrl, 'autoConnect:', currentSettings.autoConnect);
-      if (currentSettings.autoConnect && currentSettings.serverUrl) {
-        wsService.connect(currentSettings.serverUrl, currentSettings.token);
+      const s = useAppStore.getState().settings;
+      if (s.autoConnect && s.setupComplete) {
+        wsService.connectWithConfig(s.server);
       }
     }
 
     // 注册消息处理器
     wsService.on('chat_response', (payload) => {
-      // 添加助手消息
       addMessage({
         id: payload.id || `msg_${Date.now()}`,
         text: payload.text,
@@ -44,7 +52,6 @@ function App() {
         ttsUrl: payload.tts_url,
       });
 
-      // 设置Live2D动作
       if (payload.live2d_action || payload.live2d_expression) {
         setLive2DAction({
           motion: payload.live2d_action,
@@ -52,28 +59,18 @@ function App() {
         });
       }
 
-      // 播放TTS
+      // 播放 TTS
       if (payload.tts_url) {
-        // 服务端返回的是相对路径如 /tts/xxx.mp3，需要拼上 HTTP 地址
-        const serverUrl = useAppStore.getState().settings.serverUrl;
-        // ws://host:port → http://host:port
-        const httpBase = serverUrl.replace(/^ws:\/\//, 'http://').replace(/^wss:\/\//, 'https://');
-        const audioUrl = payload.tts_url.startsWith('http') 
-          ? payload.tts_url 
+        const httpBase = getHttpUrl(useAppStore.getState().settings.server);
+        const audioUrl = payload.tts_url.startsWith('http')
+          ? payload.tts_url
           : `${httpBase}${payload.tts_url}`;
-        
-        console.log('Playing TTS:', audioUrl);
+
         setIsPlaying(true);
         const audio = new Audio(audioUrl);
         audio.onended = () => setIsPlaying(false);
-        audio.onerror = (e) => {
-          console.error('TTS playback error:', e);
-          setIsPlaying(false);
-        };
-        audio.play().catch(e => {
-          console.error('TTS play failed:', e);
-          setIsPlaying(false);
-        });
+        audio.onerror = () => setIsPlaying(false);
+        audio.play().catch(() => setIsPlaying(false));
       }
     });
 
@@ -85,39 +82,19 @@ function App() {
       unsub();
       wsService.disconnect();
     };
-  }, []);
+  }, [windowLabel]);
 
-  return (
-    <div className="app">
-      <header className="app-header">
-        <div className="header-left">
-          <span className={`connection-indicator ${isConnected ? 'connected' : ''}`}></span>
-          <span className="app-title">Madoka</span>
-        </div>
-        <button className="settings-btn" onClick={() => setShowSettings(true)}>
-          <svg viewBox="0 0 24 24" width="20" height="20">
-            <path fill="currentColor" d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
-          </svg>
-        </button>
-      </header>
+  // 看板娘窗口
+  if (windowLabel === 'mascot') {
+    // 首次设置向导
+    if (!settings.setupComplete) {
+      return <SetupWizard />;
+    }
+    return <MascotView />;
+  }
 
-      <main className="app-main">
-        <div className="live2d-container">
-          <Live2DViewer modelPath="/models/miku/assets/xuefeng_3/xuefeng_3.model3.json" />
-        </div>
-        
-        <div className="chat-container">
-          <ChatMessages />
-          <ChatInput />
-        </div>
-      </main>
-
-      <SettingsPanel 
-        isOpen={showSettings} 
-        onClose={() => setShowSettings(false)} 
-      />
-    </div>
-  );
+  // 聊天窗口
+  return <ChatView />;
 }
 
 export default App;

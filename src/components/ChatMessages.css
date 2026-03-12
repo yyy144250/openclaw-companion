@@ -1,67 +1,172 @@
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  overflow-x: hidden;
+  padding: 16px;
+  scroll-behavior: smooth;
 }
 
+.chat-messages::-webkit-scrollbar {
+  width: 4px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* 空状态 */
 .chat-messages.empty {
+  display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.empty-hint {
-  color: #999;
-  font-size: 14px;
+.empty-state {
+  text-align: center;
+  opacity: 0.6;
 }
 
+.empty-icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+}
+
+.empty-state h3 {
+  font-size: 16px;
+  color: #ccc;
+  margin-bottom: 6px;
+}
+
+.empty-state p {
+  font-size: 12px;
+  color: #777;
+}
+
+/* 消息列表 */
+.messages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 单条消息 */
 .message {
   display: flex;
-  max-width: 80%;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 90%;
+  animation: msgFadeIn 0.25s ease-out;
+}
+
+@keyframes msgFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .message.user {
   align-self: flex-end;
+  flex-direction: row-reverse;
 }
 
 .message.assistant {
   align-self: flex-start;
 }
 
+/* 头像 */
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.assistant-avatar {
+  background: rgba(138, 100, 255, 0.15);
+}
+
+.user-avatar {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* 消息内容 */
+.message-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .message-bubble {
   padding: 10px 14px;
-  border-radius: 16px;
-  font-size: 14px;
+  border-radius: 14px;
+  font-size: 13px;
   line-height: 1.5;
   word-break: break-word;
-  position: relative;
 }
 
 .message.user .message-bubble {
-  background: #7c6eff;
-  color: white;
+  background: linear-gradient(135deg, #8a64ff, #6e44e0);
+  color: #fff;
   border-bottom-right-radius: 4px;
 }
 
 .message.assistant .message-bubble {
-  background: #f1f0f7;
-  color: #333;
+  background: rgba(255, 255, 255, 0.08);
+  color: #e0e0e0;
   border-bottom-left-radius: 4px;
 }
 
-.play-tts {
-  margin-left: 8px;
-  background: rgba(255,255,255,0.2);
-  border: none;
-  border-radius: 50%;
-  width: 24px;
-  height: 24px;
-  cursor: pointer;
-  font-size: 12px;
+/* 图片消息 */
+.message-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
 }
 
-.message.assistant .play-tts {
-  background: rgba(0,0,0,0.1);
+.message-image {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.2s;
+  object-fit: cover;
+}
+
+.message-image:hover {
+  transform: scale(1.02);
+}
+
+.message-text {
+  white-space: pre-wrap;
+}
+
+/* TTS 按钮 */
+.tts-play-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #aaa;
+  transition: all 0.15s;
+  align-self: flex-start;
+}
+
+.tts-play-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
 }
