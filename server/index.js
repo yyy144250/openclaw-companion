@@ -120,11 +120,11 @@ function cleanTTSCache() {
 // 每 30 分钟清理一次缓存
 setInterval(cleanTTSCache, 30 * 60 * 1000);
 
-// MiniMax LLM配置
+// OpenClaw Gateway配置
 const LLM_CONFIG = {
-  baseUrl: 'https://api.minimaxi.com/v1',
-  apiKey: 'sk-cp-PffADK-sNdSAQo-cS6vouuAG49iwWT6Ygoe7yCJVkhPX-SnccPwi0W7LabSWYJoSnd_6zbTihZBahJeUEtPutwWgF_ujc0in1SyMQk1c9rFjuzawUN6uFTk',
-  model: 'MiniMax-M2.5'
+  baseUrl: 'http://127.0.0.1:18789/v1',
+  token: 'openclaw-http-api-token-2026',
+  model: 'openclaw:main'
 };
 
 // HTTP服务器
@@ -354,9 +354,9 @@ async function handleMessage(ws, message) {
   }
 }
 
-// 调用MiniMax LLM
+// 调用OpenClaw Gateway LLM
 async function callLLM(text) {
-  const url = `${LLM_CONFIG.baseUrl}/text/chatcompletion_v2`;
+  const url = `${LLM_CONFIG.baseUrl}/chat/completions`;
   
   const body = {
     model: LLM_CONFIG.model,
@@ -377,7 +377,7 @@ async function callLLM(text) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${LLM_CONFIG.apiKey}`
+      'Authorization': `Bearer ${LLM_CONFIG.token}`
     },
     body: JSON.stringify(body)
   });
