@@ -24,7 +24,11 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   };
 
   const handleConnect = () => {
-    wsService.connect(tempSettings.serverUrl, tempSettings.token);
+    const url = tempSettings.serverUrl.trim();
+    console.log('handleConnect called, url:', url);
+    // 先保存设置，再连接，确保地址被持久化
+    updateSettings({ ...tempSettings, serverUrl: url });
+    wsService.connect(url, tempSettings.token);
   };
 
   const handleDisconnect = () => {

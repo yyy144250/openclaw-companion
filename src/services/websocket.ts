@@ -4,19 +4,56 @@ import { useAppStore } from '../stores/appStore';
 class WebSocketService {
   private ws: WebSocket | null = null;
   private reconnectTimer: number | null = null;
+  private connectTimer: number | null = null;
   private messageHandlers: Map<string, (payload: any) => void> = new Map();
+  private intentionalClose = false;
 
   connect(serverUrl: string, token: string) {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      console.log('WebSocket already connected');
-      return;
+    console.log('[WS] connect() called with:', serverUrl);
+    
+    // 如果已有连接，先清理
+    if (this.ws) {
+      this.intentionalClose = true;
+      this.ws.onopen = null;
+      this.ws.onclose = null;
+      this.ws.onerror = null;
+      this.ws.onmessage = null;
+      this.ws.close();
+      this.ws = null;
     }
 
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (this.connectTimer) {
+      clearTimeout(this.connectTimer);
+      this.connectTimer = null;
+    }
+
+    this.intentionalClose = false;
+
     try {
+      console.log('Connecting to:', serverUrl);
       this.ws = new WebSocket(serverUrl);
 
+      // 10秒连接超时
+      this.connectTimer = window.setTimeout(() => {
+        if (this.ws && this.ws.readyState !== WebSocket.OPEN) {
+          console.warn('[WS] Connection timeout after 10s');
+          this.intentionalClose = true;
+          this.ws.close();
+          this.ws = null;
+          useAppStore.getState().disconnect();
+        }
+      }, 10000);
+
       this.ws.onopen = () => {
-        console.log('WebSocket connected');
+        console.log('WebSocket connected to:', serverUrl);
+        if (this.connectTimer) {
+          clearTimeout(this.connectTimer);
+          this.connectTimer = null;
+        }
         // 发送认证
         this.send({
           type: 'system',
@@ -36,10 +73,16 @@ class WebSocketService {
         }
       };
 
-      this.ws.onclose = () => {
-        console.log('WebSocket disconnected');
+      this.ws.onclose = (event) => {
+        console.log('WebSocket disconnected, code:', event.code, 'reason:', event.reason);
+        if (this.connectTimer) {
+          clearTimeout(this.connectTimer);
+          this.connectTimer = null;
+        }
         useAppStore.getState().disconnect();
-        this.scheduleReconnect(serverUrl, token);
+        if (!this.intentionalClose) {
+          this.scheduleReconnect(serverUrl, token);
+        }
       };
 
       this.ws.onerror = (error) => {
@@ -60,6 +103,8 @@ class WebSocketService {
   }
 
   disconnect() {
+    this.intentionalClose = true;
+    
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
