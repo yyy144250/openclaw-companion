@@ -47,7 +47,7 @@ export const useAppStore = create<AppState>()(
       
       // Settings
       settings: {
-        serverUrl: 'ws://8.129.86.214:8765',
+        serverUrl: 'ws://8.129.86.214:443',
         token: '',
         alwaysOnTop: false,
         opacity: 1,
@@ -63,17 +63,16 @@ export const useAppStore = create<AppState>()(
       setIsPlaying: (playing) => set({ isPlaying: playing }),
     }),
     {
-      name: 'openclaw-companion-storage',
-      version: 2,
+      name: 'madoka-storage',
+      version: 3,
       partialize: (state) => ({ settings: state.settings }),
       migrate: (persistedState: any, version: number) => {
-        if (version < 2) {
-          // 旧版本缓存，使用新的默认值
+        if (version < 3) {
           return {
             ...persistedState,
             settings: {
               ...(persistedState as any)?.settings,
-              serverUrl: 'ws://8.129.86.214:8765',
+              serverUrl: 'ws://8.129.86.214:443',
               autoConnect: false,
             },
           };

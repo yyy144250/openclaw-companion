@@ -54,10 +54,26 @@ function App() {
 
       // 播放TTS
       if (payload.tts_url) {
+        // 服务端返回的是相对路径如 /tts/xxx.mp3，需要拼上 HTTP 地址
+        const serverUrl = useAppStore.getState().settings.serverUrl;
+        // ws://host:port → http://host:port
+        const httpBase = serverUrl.replace(/^ws:\/\//, 'http://').replace(/^wss:\/\//, 'https://');
+        const audioUrl = payload.tts_url.startsWith('http') 
+          ? payload.tts_url 
+          : `${httpBase}${payload.tts_url}`;
+        
+        console.log('Playing TTS:', audioUrl);
         setIsPlaying(true);
-        const audio = new Audio(payload.tts_url);
+        const audio = new Audio(audioUrl);
         audio.onended = () => setIsPlaying(false);
-        audio.play();
+        audio.onerror = (e) => {
+          console.error('TTS playback error:', e);
+          setIsPlaying(false);
+        };
+        audio.play().catch(e => {
+          console.error('TTS play failed:', e);
+          setIsPlaying(false);
+        });
       }
     });
 
@@ -76,7 +92,7 @@ function App() {
       <header className="app-header">
         <div className="header-left">
           <span className={`connection-indicator ${isConnected ? 'connected' : ''}`}></span>
-          <span className="app-title">OpenClaw Companion</span>
+          <span className="app-title">Madoka</span>
         </div>
         <button className="settings-btn" onClick={() => setShowSettings(true)}>
           <svg viewBox="0 0 24 24" width="20" height="20">

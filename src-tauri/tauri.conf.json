@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "OpenClaw Companion",
+  "productName": "Madoka",
   "version": "0.1.0",
-  "identifier": "com.openclaw.companion",
+  "identifier": "com.madoka.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "OpenClaw Companion",
+        "title": "Madoka",
         "label": "main",
         "width": 450,
         "height": 700,

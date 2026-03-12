@@ -1,16 +1,16 @@
-# OpenClaw Live2D Desktop Companion - 技术规格文档
+# Madoka Live2D Desktop Companion - 技术规格文档
 
 ## 1. 项目概述
 
 ### 项目名称
-**OpenClaw Companion** (拟蓑白桌面伴侣)
+**Madoka** (桌面伴侣)
 
 ### 项目目标
-开发一款跨平台桌面应用（Windows/macOS），以Live2D虚拟形象作为交互界面，连接云端OpenClaw服务，实现AI对话、语音交互、桌面提醒等功能。
+开发一款跨平台桌面应用（Windows/macOS），以Live2D虚拟形象作为交互界面，连接云端服务，实现AI对话、语音交互、桌面提醒等功能。
 
 ### 核心特性
 - Live2D虚拟形象实时渲染与动画响应
-- 云端AI对话（通过OpenClaw Gateway）
+- 云端AI对话（通过LLM Gateway）
 - 语音合成(TTS)与语音识别(STT)
 - 系统监控与桌面提醒
 - 轻量级（~20MB安装包）
@@ -43,7 +43,7 @@
 ┌──────────────────────────┼──────────────────────────────────────────┐
 │                    云端服务器                                         │
 │  ┌───────────────────────▼───────────────────────────────────────┐  │
-│  │              OpenClaw Gateway (已有)                           │  │
+│  │              LLM Gateway (已有)                               │  │
 │  │  ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐   │  │
 │  │  │  Chat     │  │  Skills   │  │  TTS      │  │  STT      │   │  │
 │  │  │  (LLM)    │  │ (天气/日程)│  │ (EdgeTTS) │  │ (Whisper) │   │  │
@@ -236,7 +236,7 @@ model.internalModel.motionManager.expressionManager?.setExpression('smile');
 
 ```
 ┌────────────────────────────────────────┐
-│  ▪▪▪  OpenClaw Companion    ─ □ ✕    │  ← 标题栏（可拖拽）
+│  ▪▪▪  Madoka                ─ □ ✕    │  ← 标题栏（可拖拽）
 ├────────────────────────────────────────┤
 │                                        │
 │           [Live2D 看板娘]              │
@@ -280,15 +280,15 @@ model.internalModel.motionManager.expressionManager?.setExpression('smile');
 ```bash
 # Docker Compose 方案
 services:
-  openclaw-gateway:
-    image: openclaw/gateway:latest
+  madoka-gateway:
+    image: madoka/gateway:latest
     ports:
       - "8080:8080"
       - "8765:8765"  # WebSocket
 
   # 可选：TTS服务
   tts-service:
-    image: openclaw/tts:latest
+    image: madoka/tts:latest
 ```
 
 ### 6.2 桌面端构建

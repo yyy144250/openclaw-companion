@@ -1,10 +1,10 @@
-# OpenClaw Companion
+# Madoka
 
-🎭 OpenClaw 桌面看板娘 - Live2D 虚拟形象桌面应用
+🎭 Madoka 桌面看板娘 - Live2D 虚拟形象桌面应用
 
 ## 功能特性
 
-- 🗣️ AI 对话 - 连接云端 OpenClaw 实现智能对话
+- 🗣️ AI 对话 - 连接云端服务实现智能对话
 - 🎬 Live2D 动画 - 虚拟形象实时渲染，支持表情和动作
 - 🔊 语音合成 (TTS) - 云端生成语音，本地播放
 - 🎤 语音识别 (STT) - 支持语音输入
@@ -17,7 +17,7 @@
 
 ```bash
 git clone <this-repo>
-cd openclaw-companion
+cd madoka
 npm install
 ```
 
@@ -67,7 +67,7 @@ npm start
 
 在应用内点击设置按钮，配置：
 
-- **服务器地址**: OpenClaw Gateway WebSocket 地址
+- **服务器地址**: WebSocket 服务器地址
   - 本地开发: `ws://localhost:8765`
   - 云端部署: `ws://your-server.com:8765`
 - **认证Token**: 云端认证令牌
@@ -77,7 +77,7 @@ npm start
 ## 项目结构
 
 ```
-openclaw-companion/
+madoka/
 ├── src/
 │   ├── components/     # React 组件
 │   │   ├── Live2DViewer.tsx    # Live2D 渲染
@@ -109,7 +109,7 @@ openclaw-companion/
 # docker-compose.yml
 version: '3'
 services:
-  openclaw-companion:
+  madoka-server:
     image: node:18-alpine
     working_dir: /app
     volumes:
@@ -117,13 +117,13 @@ services:
     ports:
       - "8765:8765"
     environment:
-      - LLM_API=http://your-openclaw-gateway:8080
+      - LLM_API=http://your-llm-gateway:8080
     command: sh -c "npm install && npm start"
 ```
 
-### 对接 OpenClaw Gateway
+### 对接 LLM Gateway
 
-服务端需要配置 `LLM_API` 环境变量指向你的 OpenClaw Gateway。
+服务端需要配置 `LLM_API` 环境变量指向你的 LLM Gateway。
 
 ## 常见问题
 
