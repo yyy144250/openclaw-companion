@@ -8,11 +8,58 @@ interface SettingsPanelProps {
   onClose: () => void;
 }
 
+// LLM 配置接口
+interface LLMConfig {
+  baseUrl: string;
+  model: string;
+  hasToken: boolean;
+}
+
 export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const settings = useAppStore((state) => state.settings);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const isConnected = useAppStore((state) => state.isConnected);
   const [tempSettings, setTempSettings] = useState(settings);
+  const [llmConfig, setLlmConfig] = useState<LLMConfig | null>(null);
+  const [llmToken, setLlmToken] = useState('');
+  const [savingLlm, setSavingLlm] = useState(false);
+
+  // 加载 LLM 配置
+  useEffect(() => {
+    if (isOpen && settings.serverUrl) {
+      fetch(`${settings.serverUrl.replace('ws://', 'http://').replace('wss://', 'https://')}/config`)
+        .then(res => res.json())
+        .then(data => setLlmConfig(data))
+        .catch(err => console.error('Failed to load LLM config:', err));
+    }
+  }, [isOpen, settings.serverUrl]);
+
+  // 保存 LLM 配置
+  const handleSaveLlmConfig = async () => {
+    if (!llmConfig || !settings.serverUrl) return;
+    
+    setSavingLlm(true);
+    try {
+      const baseUrl = llmConfig.baseUrl.replace('/v1', '');
+      const res = await fetch(`${settings.serverUrl.replace('ws://', 'http://').replace('wss://', 'https://')}/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          baseUrl: `${baseUrl}/v1`,
+          token: llmToken,
+          model: llmConfig.model
+        })
+      });
+      if (res.ok) {
+        alert('LLM 配置已保存');
+      } else {
+        alert('保存失败');
+      }
+    } catch (err) {
+      alert('保存失败: ' + err);
+    }
+    setSavingLlm(false);
+  };
 
   useEffect(() => {
     setTempSettings(settings);
@@ -115,6 +162,47 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 <option value="zh-CN-YunyangNeural">云扬 (男声)</option>
               </select>
             </div>
+          </div>
+
+          {/* LLM 配置 */}
+          <div className="settings-section">
+            <h3>LLM 配置</h3>
+            {llmConfig ? (
+              <>
+                <div className="form-group">
+                  <label>API 地址</label>
+                  <input
+                    type="text"
+                    value={llmConfig.baseUrl}
+                    onChange={(e) => setLlmConfig({ ...llmConfig, baseUrl: e.target.value })}
+                    placeholder="http://127.0.0.1:18789/v1"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Model</label>
+                  <input
+                    type="text"
+                    value={llmConfig.model}
+                    onChange={(e) => setLlmConfig({ ...llmConfig, model: e.target.value })}
+                    placeholder="openclaw:nishuo"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Token {llmConfig.hasToken && '(已配置)'}</label>
+                  <input
+                    type="password"
+                    value={llmToken}
+                    onChange={(e) => setLlmToken(e.target.value)}
+                    placeholder={llmConfig.hasToken ? '留空保持不变' : '输入 Token'}
+                  />
+                </div>
+                <button onClick={handleSaveLlmConfig} disabled={savingLlm}>
+                  {savingLlm ? '保存中...' : '保存 LLM 配置'}
+                </button>
+              </>
+            ) : (
+              <p>加载中...</p>
+            )}
           </div>
         </div>
 
