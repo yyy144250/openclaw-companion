@@ -120,12 +120,38 @@ function cleanTTSCache() {
 // 每 30 分钟清理一次缓存
 setInterval(cleanTTSCache, 30 * 60 * 1000);
 
-// OpenClaw Gateway配置
-const LLM_CONFIG = {
-  baseUrl: 'http://127.0.0.1:18789/v1',
-  token: 'openclaw-http-api-token-2026',
-  model: 'openclaw:main'
-};
+// 从环境变量或配置文件读取 OpenClaw Gateway 配置
+const OPENCLAW_CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH || '/root/.openclaw/openclaw.json';
+const DEFAULT_GATEWAY_PORT = process.env.GATEWAY_PORT || 18789;
+
+function loadOpenClawConfig() {
+  try {
+    if (fs.existsSync(OPENCLAW_CONFIG_PATH)) {
+      const config = JSON.parse(fs.readFileSync(OPENCLAW_CONFIG_PATH, 'utf-8'));
+      const gateway = config.gateway || {};
+      const http = gateway.http || {};
+      
+      return {
+        baseUrl: `http://127.0.0.1:${DEFAULT_GATEWAY_PORT}/v1`,
+        token: gateway.auth?.token || '',
+        model: 'openclaw:main'
+      };
+    }
+  } catch (e) {
+    console.warn('⚠️ 无法读取 OpenClaw 配置:', e.message);
+  }
+  
+  // 回退到环境变量
+  return {
+    baseUrl: process.env.GATEWAY_URL || `http://127.0.0.1:${DEFAULT_GATEWAY_PORT}/v1`,
+    token: process.env.GATEWAY_TOKEN || '',
+    model: process.env.LLM_MODEL || 'openclaw:main'
+  };
+}
+
+// LLM 配置（可动态更新）
+let LLM_CONFIG = loadOpenClawConfig();
+console.log(`📡 LLM 配置: ${LLM_CONFIG.baseUrl}, model: ${LLM_CONFIG.model}`);
 
 // HTTP服务器
 const server = http.createServer(async (req, res) => {
@@ -146,6 +172,40 @@ const server = http.createServer(async (req, res) => {
       clients: wss?.clients?.size || 0,
       tts: edgeTtsAvailable ? 'available' : 'unavailable'
     }));
+    return;
+  }
+
+  // 配置 API - 获取/设置 LLM 配置
+  if (req.url === '/config' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      baseUrl: LLM_CONFIG.baseUrl,
+      model: LLM_CONFIG.model,
+      // 不返回 token
+      hasToken: !!LLM_CONFIG.token
+    }));
+    return;
+  }
+
+  if (req.url === '/config' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        const newConfig = JSON.parse(body);
+        if (newConfig.baseUrl) LLM_CONFIG.baseUrl = newConfig.baseUrl;
+        if (newConfig.token) LLM_CONFIG.token = newConfig.token;
+        if (newConfig.model) LLM_CONFIG.model = newConfig.model;
+        
+        console.log('📝 LLM 配置已更新:', { baseUrl: LLM_CONFIG.baseUrl, model: LLM_CONFIG.model });
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok' }));
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
     return;
   }
 
