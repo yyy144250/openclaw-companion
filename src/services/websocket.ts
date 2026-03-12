@@ -5,14 +5,25 @@ class WebSocketService {
   private ws: WebSocket | null = null;
   private reconnectTimer: number | null = null;
   private messageHandlers: Map<string, (payload: any) => void> = new Map();
+  private intentionalClose = false;
 
   connect(serverUrl: string, token: string) {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      console.log('WebSocket already connected');
-      return;
+    // 如果已有连接，先清理
+    if (this.ws) {
+      this.intentionalClose = true;
+      this.ws.close();
+      this.ws = null;
     }
 
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
+    this.intentionalClose = false;
+
     try {
+      console.log('Connecting to:', serverUrl);
       this.ws = new WebSocket(serverUrl);
 
       this.ws.onopen = () => {
@@ -39,7 +50,10 @@ class WebSocketService {
       this.ws.onclose = () => {
         console.log('WebSocket disconnected');
         useAppStore.getState().disconnect();
-        this.scheduleReconnect(serverUrl, token);
+        // 仅在非主动断开时才自动重连
+        if (!this.intentionalClose) {
+          this.scheduleReconnect(serverUrl, token);
+        }
       };
 
       this.ws.onerror = (error) => {
@@ -60,6 +74,8 @@ class WebSocketService {
   }
 
   disconnect() {
+    this.intentionalClose = true;
+    
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;

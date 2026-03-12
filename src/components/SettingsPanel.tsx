@@ -24,6 +24,8 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   };
 
   const handleConnect = () => {
+    // 先保存设置，再连接，确保地址被持久化
+    updateSettings(tempSettings);
     wsService.connect(tempSettings.serverUrl, tempSettings.token);
   };
 

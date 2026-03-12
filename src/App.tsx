@@ -10,15 +10,27 @@ import './App.css';
 function App() {
   const [showSettings, setShowSettings] = useState(false);
   const isConnected = useAppStore((state) => state.isConnected);
-  const settings = useAppStore((state) => state.settings);
   const addMessage = useAppStore((state) => state.addMessage);
   const setLive2DAction = useAppStore((state) => state.setLive2DAction);
   const setIsPlaying = useAppStore((state) => state.setIsPlaying);
 
   // 初始化WebSocket连接
   useEffect(() => {
-    if (settings.autoConnect && settings.serverUrl) {
-      wsService.connect(settings.serverUrl, settings.token);
+    // 等待 zustand persist hydration 完成后再连接
+    const unsub = useAppStore.persist.onFinishHydration((state) => {
+      console.log('Store hydrated, serverUrl:', state.settings.serverUrl, 'autoConnect:', state.settings.autoConnect);
+      if (state.settings.autoConnect && state.settings.serverUrl) {
+        wsService.connect(state.settings.serverUrl, state.settings.token);
+      }
+    });
+
+    // 如果已经 hydrated（同步存储的情况），立即检查
+    if (useAppStore.persist.hasHydrated()) {
+      const currentSettings = useAppStore.getState().settings;
+      console.log('Store already hydrated, serverUrl:', currentSettings.serverUrl, 'autoConnect:', currentSettings.autoConnect);
+      if (currentSettings.autoConnect && currentSettings.serverUrl) {
+        wsService.connect(currentSettings.serverUrl, currentSettings.token);
+      }
     }
 
     // 注册消息处理器
@@ -54,6 +66,7 @@ function App() {
     });
 
     return () => {
+      unsub();
       wsService.disconnect();
     };
   }, []);
