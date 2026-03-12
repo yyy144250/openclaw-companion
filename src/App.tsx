@@ -74,7 +74,7 @@ function App() {
 
       <main className="app-main">
         <div className="live2d-container">
-          <Live2DViewer modelPath="/models/miku.model3.json" />
+          <Live2DViewer modelPath="/models/miku/assets/xuefeng_3/xuefeng_3.model3.json" />
         </div>
         
         <div className="chat-container">

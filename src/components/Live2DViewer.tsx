@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Application, Container } from 'pixi.js';
-import * as Live2D from 'pixi-live2d-display';
+import * as Live2D from 'pixi-live2d-display/cubism4';
 import { useAppStore } from '../stores/appStore';
 import './Live2DViewer.css';
 
