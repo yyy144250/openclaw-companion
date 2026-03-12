@@ -33,19 +33,24 @@ export function SetupWizard() {
       }
 
       if (explicitPort) {
-        // 用户指定了端口，直接测试
-        const protocol = explicitPort === 443 ? 'https' : 'http';
-        try {
-          const resp = await fetch(`${protocol}://${targetHost}:${explicitPort}/health`, {
-            signal: AbortSignal.timeout(5000),
-          });
-          if (resp.ok) {
-            setProbeResult({ port: explicitPort, secure: protocol === 'https' });
-          } else {
-            setError('服务器响应异常，请检查地址');
+        // 用户指定了端口，先试 http 再试 https
+        let connected = false;
+        for (const proto of ['http', 'https'] as const) {
+          try {
+            const resp = await fetch(`${proto}://${targetHost}:${explicitPort}/health`, {
+              signal: AbortSignal.timeout(4000),
+            });
+            if (resp.ok) {
+              setProbeResult({ port: explicitPort, secure: proto === 'https' });
+              connected = true;
+              break;
+            }
+          } catch {
+            // 继续尝试下一个协议
           }
-        } catch {
-          setError(`无法连接到 ${targetHost}:${explicitPort}，请检查地址和端口`);
+        }
+        if (!connected) {
+          setError(`无法连接到 ${targetHost}:${explicitPort}，请确认服务端已启动`);
         }
       } else {
         // 自动探测

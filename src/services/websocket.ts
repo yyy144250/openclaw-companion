@@ -173,12 +173,13 @@ export async function probeServer(host: string): Promise<{
   port: number;
   secure: boolean;
 }> {
-  // 按优先级尝试常见端口
+  // 按优先级尝试常见端口和协议
   const candidates = [
-    { port: 443, secure: false },
+    { port: 443, secure: false },   // 你的服务端用 HTTP 跑在 443
     { port: 8765, secure: false },
     { port: 80, secure: false },
-    { port: 443, secure: true },
+    { port: 8080, secure: false },
+    { port: 443, secure: true },    // 真正的 HTTPS 放最后
   ];
 
   for (const { port, secure } of candidates) {

@@ -62,7 +62,7 @@
 
 .titlebar-actions {
   display: flex;
-  gap: 8px;
+  gap: 4px;
 }
 
 .titlebar-btn {

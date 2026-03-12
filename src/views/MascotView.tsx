@@ -11,13 +11,11 @@ export function MascotView() {
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
 
   const handleClick = useCallback(() => {
-    // 点击看板娘打开/关闭聊天窗口
     invoke('toggle_chat_window').catch(console.error);
   }, []);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button === 0) {
-      // 左键拖拽
       invoke('start_dragging', { label: 'mascot' }).catch(console.error);
     }
   }, []);

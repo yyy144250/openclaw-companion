@@ -29,17 +29,27 @@ export function Live2DViewer({ modelPath = '/models/miku.model3.json' }: Live2DV
 
       const model = await Live2DModel.from(modelPath);
 
-      const viewWidth = containerRef.current.clientWidth || 350;
-      const viewHeight = containerRef.current.clientHeight || 400;
+      const viewWidth = containerRef.current.clientWidth || 650;
+      const viewHeight = containerRef.current.clientHeight || 750;
 
+      // 缩放：确保模型完全在视口内，留一点余量
       const scale = Math.min(
         viewWidth / model.width,
         viewHeight / model.height
-      ) * 0.9;
+      ) * 0.65;
 
       model.scale.set(scale);
+      // 水平居中
       model.x = (viewWidth - model.width * scale) / 2;
-      model.y = (viewHeight - model.height * scale) / 2;
+      // 垂直：顶部留一点空间，确保头不被截
+      const modelScaledHeight = model.height * scale;
+      if (modelScaledHeight >= viewHeight) {
+        // 模型比视口高，从顶部开始
+        model.y = 0;
+      } else {
+        // 模型比视口矮，稍微偏下居中
+        model.y = (viewHeight - modelScaledHeight) * 0.3;
+      }
 
       appRef.current.stage.addChild(model);
       modelRef.current = model;

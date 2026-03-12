@@ -25,10 +25,10 @@ function App() {
     }
   }, []);
 
-  // 初始化 WebSocket 连接（只在 mascot 窗口中初始化）
+  // 每个窗口独立管理 WebSocket 连接
+  // mascot 和 chat 是独立的 webview，各有自己的 JS 上下文和 store
   useEffect(() => {
-    if (windowLabel !== 'mascot') return;
-
+    // 自动连接
     const unsub = useAppStore.persist.onFinishHydration((state) => {
       if (state.settings.autoConnect && state.settings.setupComplete) {
         wsService.connectWithConfig(state.settings.server);
@@ -42,7 +42,7 @@ function App() {
       }
     }
 
-    // 注册消息处理器
+    // 消息处理
     wsService.on('chat_response', (payload) => {
       addMessage({
         id: payload.id || `msg_${Date.now()}`,
@@ -59,8 +59,8 @@ function App() {
         });
       }
 
-      // 播放 TTS
-      if (payload.tts_url) {
+      // TTS 只在 mascot 窗口播放，避免重复
+      if (payload.tts_url && windowLabel === 'mascot') {
         const httpBase = getHttpUrl(useAppStore.getState().settings.server);
         const audioUrl = payload.tts_url.startsWith('http')
           ? payload.tts_url
@@ -86,7 +86,6 @@ function App() {
 
   // 看板娘窗口
   if (windowLabel === 'mascot') {
-    // 首次设置向导
     if (!settings.setupComplete) {
       return <SetupWizard />;
     }

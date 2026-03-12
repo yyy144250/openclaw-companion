@@ -276,18 +276,6 @@ wss.on('connection', (ws, req) => {
   const ip = req.socket.remoteAddress;
   
   console.log(`📱 Client connected: ${clientId} from ${ip}`);
-  
-  // 发送欢迎消息
-  ws.send(JSON.stringify({
-    type: 'chat_response',
-    payload: {
-      text: '你好！我是拟蓑白，你的桌面伴侣~ 🗣️ 可以和我聊天哦！',
-      live2d_action: 'idle',
-      live2d_expression: 'smile'
-    },
-    id: `welcome_${Date.now()}`,
-    timestamp: Date.now()
-  }));
 
   ws.on('message', async (data) => {
     try {
@@ -318,22 +306,6 @@ async function handleMessage(ws, message) {
           type: 'connection_status',
           payload: { status: 'authenticated' },
           id: message.id,
-          timestamp: Date.now()
-        }));
-        
-        // 发送欢迎消息（带语音）
-        const welcomeText = '你好！我是Madoka，已连接到云端服务~';
-        const ttsFile = await generateTTS(welcomeText);
-        
-        ws.send(JSON.stringify({
-          type: 'chat_response',
-          payload: {
-            text: welcomeText,
-            tts_url: ttsFile ? getTTSUrl(ttsFile) : null,
-            live2d_action: 'idle',
-            live2d_expression: 'smile'
-          },
-          id: `msg_${Date.now()}`,
           timestamp: Date.now()
         }));
       }
